@@ -31,6 +31,38 @@
 #define ELAN_0907 (1 << 0)
 #define ELAN_0C03 (1 << 1)
 #define ELAN_0C42 (1 << 2)
+/* 04f3:0c1a firmware 0x0142 answers the pre-scan command (0x40 0x3f)
+ * immediately instead of blocking until a finger is placed. The driver has
+ * to poll it, otherwise a capture started before the finger touches the
+ * sensor fails with a protocol error. */
+#define ELAN_0C1A (1 << 3)
+
+/* Press-and-hold sensors: capture one settled frame instead of stitching. */
+#define ELAN_PRESS (1 << 4)
+
+/* 0c1a: a finger resting on the sensor while the background is captured is
+ * baked into the sensor calibration baseline, after which the sensor stops
+ * reporting touches. If the background/calibration mean differ by more than
+ * this, wait for the finger to lift and take the background again. */
+#define ELAN_0C1A_FINGER_DELTA 1000
+#define ELAN_0C1A_FINGER_WAIT 100
+#define ELAN_0C1A_FINGER_WAITS 100
+
+/* press mode: frames read before the touch is reported (the finger is still
+ * down, so clients can prompt to lift it), and oldest frames to drop (finger
+ * still landing) */
+#define ELAN_PRESS_FRAMES 4
+#define ELAN_PRESS_SKIP_FRAMES 1
+/* reject captures whose column means carry most of the variance (stripe noise) */
+#define ELAN_PRESS_MAX_STRIPE_RATIO 0.75
+/* a small sensor sees a different patch each touch: enroll more of them */
+#define ELAN_PRESS_ENROLL_STAGES 15
+/* a finger landing during calibration makes it fail, start it over */
+#define ELAN_PRESS_CALIBRATION_ROUNDS 20
+#define ELAN_PRESS_CALIBRATION_DELAY 300
+/* SIFT: minimum keypoints per capture; the matcher itself asks for at least
+ * ELANPRESS_MATCH_MIN_PAIRS consistent pairs */
+#define ELAN_SIFT_MIN_KEYPOINTS 20
 
 /* devices which don't require frame rotation before assembling */
 #define ELAN_NOT_ROTATED ELAN_0C03
@@ -187,7 +219,7 @@ static const FpIdEntry elan_id_table[] = {
   {.vid = ELAN_VEND_ID,  .pid = 0x0c17, .driver_data = ELAN_ALL_DEV},
   {.vid = ELAN_VEND_ID,  .pid = 0x0c18, .driver_data = ELAN_ALL_DEV},
   {.vid = ELAN_VEND_ID,  .pid = 0x0c19, .driver_data = ELAN_ALL_DEV},
-  {.vid = ELAN_VEND_ID,  .pid = 0x0c1a, .driver_data = ELAN_ALL_DEV},
+  {.vid = ELAN_VEND_ID,  .pid = 0x0c1a, .driver_data = ELAN_0C1A | ELAN_PRESS},
   {.vid = ELAN_VEND_ID,  .pid = 0x0c1b, .driver_data = ELAN_ALL_DEV},
   {.vid = ELAN_VEND_ID,  .pid = 0x0c1c, .driver_data = ELAN_ALL_DEV},
   {.vid = ELAN_VEND_ID,  .pid = 0x0c1d, .driver_data = ELAN_ALL_DEV},
