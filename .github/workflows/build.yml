@@ -1,0 +1,35 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            meson ninja-build pkg-config gcc \
+            libglib2.0-dev libusb-1.0-0-dev libgudev-1.0-dev \
+            libgusb-dev libjson-glib-dev libudev-dev \
+            libpixman-1-dev libssl-dev libcairo2-dev
+
+      - name: Configure
+        run: |
+          meson setup build \
+            -Ddrivers=elan \
+            -Dintrospection=false \
+            -Ddoc=false \
+            -Dinstalled-tests=false \
+            -Dtod=true
+
+      - name: Build
+        run: meson compile -C build
+
+      - name: Test
+        run: meson test -C build --print-errorlogs

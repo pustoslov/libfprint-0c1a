@@ -1,5 +1,7 @@
 # libfprint fork for ELAN 04f3:0c1a
 
+[![build](https://github.com/pustoslov/libfprint-0c1a/actions/workflows/build.yml/badge.svg?branch=elan-0c1a)](https://github.com/pustoslov/libfprint-0c1a/actions/workflows/build.yml)
+
 Experimental fork of libfprint 1.94.7 adding support for the ELAN
 `04f3:0c1a` fingerprint sensor (Xiaomi Mi Notebook Pro 15.6, TM1703).
 
