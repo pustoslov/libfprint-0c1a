@@ -42,10 +42,11 @@
  * rejected about 1 genuine press in 10 and still accepted the odd impostor.
  *
  * On the 144x64 04f3:0c1a sensor used here the genuine pair counts are
- * lower: 17 genuine presses scored 5..19, while 40 impostor presses from
- * other fingers reached at most 4. A threshold of 9 keeps a 5-pair margin
- * over the observed impostor maximum. */
-#define ELANPRESS_MATCH_MIN_PAIRS 9
+ * lower: 50 genuine presses logged 3..25 (median 11), while 100 impostor
+ * presses from five other fingers logged 0..4 (median 0). A threshold of 8
+ * keeps a 4-pair margin over the observed impostor maximum and accepts
+ * 42/50 (84%) of genuine presses in that sample. */
+#define ELANPRESS_MATCH_MIN_PAIRS 8
 
 /* the nearest descriptor must be closer than this fraction of the distance
  * to the second nearest to count as a pair (Lowe's ratio test) */

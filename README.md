@@ -11,10 +11,11 @@ libfprint maintainers. Keep a password fallback.
 ## Status
 
 Working on one 04f3:0c1a unit under Ubuntu 24.04 with fprintd 1.94.x.
-A small sample of 17 genuine presses scored 5..19 consistent SIFT pairs,
-while 40 impostor presses from other fingers reached at most 4. The match
-threshold is set to 9: in that sample 15 of 17 genuine presses passed.
-Expect occasional false rejections.
+In a sample of 50 genuine presses, consistent SIFT pair counts ranged from
+3 to 25 (median 11); 42 of 50 (84%) reached the 8-pair threshold. 100
+impostor presses from five other fingers reached 0..4 pairs (median 0), with
+no false accepts. The threshold of 8 keeps a four-pair margin over the
+observed impostor maximum. Expect some false rejections.
 
 Tested hardware: Xiaomi Mi Notebook Pro 15.6 (TM1703), sensor `04f3:0c1a`.
 Other ELAN sensors are not supported by this branch.
@@ -30,7 +31,7 @@ Other ELAN sensors are not supported by this branch.
   matcher derived from the `elanpress` driver (see NOTICE).
 - Store only SIFT keypoints/descriptors in templates, never images.
 - Reject low-contrast captures and ask for another press.
-- Use a threshold of 9 consistent pairs for this sensor.
+- Use a threshold of 8 consistent pairs for this sensor.
 
 ## Privacy
 
@@ -152,9 +153,10 @@ journalctl -u fprintd -f
 ```
 
 Relevant lines contain `press image`, `sift image quality`, `sift keypoints`
-and `sift best pairs N/9`. The threshold is
+and `sift best pairs N/8`. The threshold is
 `ELANPRESS_MATCH_MIN_PAIRS` in `libfprint/drivers/elanpress-match.h`.
-Lower it only after collecting impostor scores from other fingers.
+The values in `Status` were measured on one unit; re-check impostor scores
+before lowering it further.
 
 ## License and attribution
 

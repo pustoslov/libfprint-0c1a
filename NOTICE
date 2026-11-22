@@ -13,4 +13,4 @@ libfprint/fpi-print.c is inspired by the libfprint-elan-0c28-patch
 (AUR) experimental package.
 
 Device-specific changes for ELAN 04f3:0c1a (pre-scan polling,
-calibration wait, press capture, threshold 9) were made for this fork.
+calibration wait, press capture, threshold 8) were made for this fork.
