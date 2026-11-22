@@ -26,7 +26,8 @@ jobs:
             -Dintrospection=false \
             -Ddoc=false \
             -Dinstalled-tests=false \
-            -Dtod=true
+            -Dtod=true \
+            -Dudev_hwdb=disabled
 
       - name: Build
         run: meson compile -C build

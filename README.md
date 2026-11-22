@@ -74,9 +74,16 @@ sudo pacman -S meson ninja gcc pkgconf glib2 libusb libgudev libgusb \
 
 ```sh
 meson setup build -Ddrivers=elan -Dintrospection=false -Ddoc=false \
-  -Dinstalled-tests=false -Dtod=true
+  -Dinstalled-tests=false -Dtod=true -Dudev_hwdb=disabled
 meson compile -C build
 ```
+
+`-Dudev_hwdb=disabled` keeps the build independent of `udev.pc`, which on
+Debian/Ubuntu is shipped by `systemd-dev`, not `libudev-dev`. It is not needed
+for the `elan` driver: systemd 248 and later already ship the libfprint
+autosuspend hwdb. Drop the option if you need libfprint to install its own
+hwdb (systemd older than 248) or if you build the `elanspi` driver, which
+requires udev rules.
 
 Optional tests:
 
@@ -120,7 +127,7 @@ distribution library:
 
 ```sh
 meson setup build --prefix=/usr -Ddrivers=elan -Dintrospection=false \
-  -Ddoc=false -Dinstalled-tests=false -Dtod=true
+  -Ddoc=false -Dinstalled-tests=false -Dtod=true -Dudev_hwdb=disabled
 meson compile -C build
 sudo meson install -C build
 ```
