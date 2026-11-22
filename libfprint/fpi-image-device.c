@@ -257,11 +257,19 @@ fpi_image_device_minutiae_detected (GObject *source_object, GAsyncResult *res, g
           return;
         }
 
-      /* Replace error with a retry condition. */
-      g_warning ("Failed to detect minutiae: %s", error->message);
-      g_clear_pointer (&error, g_error_free);
+      /* A custom matcher does not use minutiae, only the normalized image. */
+      if (priv->img_to_print)
+        {
+          g_clear_pointer (&error, g_error_free);
+        }
+      else
+        {
+          /* Replace error with a retry condition. */
+          g_warning ("Failed to detect minutiae: %s", error->message);
+          g_clear_pointer (&error, g_error_free);
 
-      error = fpi_device_retry_new_msg (FP_DEVICE_RETRY_GENERAL, "Minutiae detection failed, please retry");
+          error = fpi_device_retry_new_msg (FP_DEVICE_RETRY_GENERAL, "Minutiae detection failed, please retry");
+        }
     }
 
   action = fpi_device_get_current_action (device);
@@ -275,9 +283,20 @@ fpi_image_device_minutiae_detected (GObject *source_object, GAsyncResult *res, g
 
   if (!error)
     {
+      gboolean ok;
+
       print = fp_print_new (device);
-      fpi_print_set_type (print, FPI_PRINT_NBIS);
-      if (!fpi_print_add_from_image (print, image, &error))
+      if (priv->img_to_print)
+        {
+          ok = priv->img_to_print (self, image, print, &error);
+        }
+      else
+        {
+          fpi_print_set_type (print, FPI_PRINT_NBIS);
+          ok = fpi_print_add_from_image (print, image, &error);
+        }
+
+      if (!ok)
         {
           g_clear_object (&print);
 
@@ -323,7 +342,13 @@ fpi_image_device_minutiae_detected (GObject *source_object, GAsyncResult *res, g
 
       fpi_device_get_verify_data (device, &template);
       if (print)
-        result = fpi_print_bz3_match (template, print, priv->bz3_threshold, &error);
+        {
+          if (priv->img_match)
+            result = priv->img_match (self, template, print, &error);
+          else
+            result = fpi_print_bz3_match (template, print,
+                                          priv->bz3_threshold, &error);
+        }
       else
         result = FPI_MATCH_ERROR;
 
@@ -342,13 +367,24 @@ fpi_image_device_minutiae_detected (GObject *source_object, GAsyncResult *res, g
       for (i = 0; !error && i < templates->len; i++)
         {
           FpPrint *template = g_ptr_array_index (templates, i);
+          FpiMatchResult match;
 
-          if (fpi_print_bz3_match (template, print, priv->bz3_threshold, &error) == FPI_MATCH_SUCCESS)
+          if (priv->img_match)
+            match = priv->img_match (self, template, print, &error);
+          else
+            match = fpi_print_bz3_match (template, print, priv->bz3_threshold, &error);
+
+          if (match == FPI_MATCH_SUCCESS)
             {
               result = template;
               break;
             }
         }
+
+      /* A custom-matched scan never equals the stored template; core would
+       * warn and drop it anyway, so do not report it on a match. */
+      if (result && priv->img_match)
+        g_clear_object (&print);
 
       if (!error || error->domain == FP_DEVICE_RETRY)
         fpi_device_identify_report (device, result, g_steal_pointer (&print), g_steal_pointer (&error));
@@ -390,6 +426,31 @@ fpi_image_device_set_bz3_threshold (FpImageDevice *self,
   g_return_if_fail (bz3_threshold > 0);
 
   priv->bz3_threshold = bz3_threshold;
+}
+
+/**
+ * fpi_image_device_set_matcher:
+ * @self: a #FpImageDevice imaging fingerprint device
+ * @img_to_print: builds print data from a captured image
+ * @img_match: compares a scanned print with a stored template
+ *
+ * Replace NBIS minutiae matching for this device, for sensors whose
+ * images are too small to hold enough minutiae. Enrolled prints are
+ * FPI_PRINT_RAW; each enroll capture is appended to them. Call from the
+ * open callback.
+ */
+void
+fpi_image_device_set_matcher (FpImageDevice      *self,
+                              FpiImageToPrintFunc img_to_print,
+                              FpiImageMatchFunc   img_match)
+{
+  FpImageDevicePrivate *priv = fp_image_device_get_instance_private (self);
+
+  g_return_if_fail (FP_IS_IMAGE_DEVICE (self));
+  g_return_if_fail ((img_to_print == NULL) == (img_match == NULL));
+
+  priv->img_to_print = img_to_print;
+  priv->img_match = img_match;
 }
 
 /**

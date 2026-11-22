@@ -123,6 +123,22 @@ struct _FpImageDeviceClass
 void fpi_image_device_set_bz3_threshold (FpImageDevice *self,
                                          gint           bz3_threshold);
 
+/* Fill @print (set its type, e.g. FPI_PRINT_RAW) from @image. A retry error
+ * rejects the capture. */
+typedef gboolean (*FpiImageToPrintFunc) (FpImageDevice *self,
+                                         FpImage       *image,
+                                         FpPrint       *print,
+                                         GError       **error);
+/* Compare a scanned @print against a stored @template. */
+typedef FpiMatchResult (*FpiImageMatchFunc) (FpImageDevice *self,
+                                             FpPrint       *template,
+                                             FpPrint       *print,
+                                             GError       **error);
+
+void fpi_image_device_set_matcher (FpImageDevice      *self,
+                                   FpiImageToPrintFunc img_to_print,
+                                   FpiImageMatchFunc   img_match);
+
 void fpi_image_device_session_error (FpImageDevice *self,
                                      GError        *error);
 

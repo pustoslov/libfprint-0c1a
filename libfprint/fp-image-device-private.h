@@ -37,6 +37,10 @@ typedef struct
   FpImage            *capture_image;
 
   gint                bz3_threshold;
+
+  /* custom matcher, see fpi_image_device_set_matcher() */
+  FpiImageToPrintFunc img_to_print;
+  FpiImageMatchFunc   img_match;
 } FpImageDevicePrivate;
 
 

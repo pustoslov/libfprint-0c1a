@@ -46,6 +46,37 @@
 void
 fpi_print_add_print (FpPrint *print, FpPrint *add)
 {
+  /* RAW prints from a custom image matcher are "aay": one blob per capture */
+  if (print->type == FPI_PRINT_RAW)
+    {
+      GVariantBuilder builder;
+      GVariantIter iter;
+      GVariant *child;
+
+      g_return_if_fail (add->type == FPI_PRINT_RAW && add->data);
+
+      g_variant_builder_init (&builder, G_VARIANT_TYPE ("aay"));
+      if (print->data)
+        {
+          g_variant_iter_init (&iter, print->data);
+          while ((child = g_variant_iter_next_value (&iter)))
+            {
+              g_variant_builder_add_value (&builder, child);
+              g_variant_unref (child);
+            }
+        }
+      g_variant_iter_init (&iter, add->data);
+      while ((child = g_variant_iter_next_value (&iter)))
+        {
+          g_variant_builder_add_value (&builder, child);
+          g_variant_unref (child);
+        }
+
+      g_clear_pointer (&print->data, g_variant_unref);
+      print->data = g_variant_ref_sink (g_variant_builder_end (&builder));
+      return;
+    }
+
   g_return_if_fail (print->type == FPI_PRINT_NBIS);
   g_return_if_fail (add->type == FPI_PRINT_NBIS);
 
@@ -178,6 +209,8 @@ fpi_print_add_from_image (FpPrint *print,
                    "No minutiae found in image or not yet detected!");
       return FALSE;
     }
+
+  fp_dbg ("minutiae: %u", minutiae->len);
 
   _minutiae.num = minutiae->len;
   _minutiae.list = (struct fp_minutia **) minutiae->pdata;
