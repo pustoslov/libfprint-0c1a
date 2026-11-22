@@ -1,0 +1,16 @@
+This fork is based on libfprint 1.94.7 (LGPL-2.1-or-later).
+
+SIFT feature extraction and the rigid-placement matcher in
+libfprint/drivers/elanpress-sift.c, elanpress-sift.h,
+libfprint/drivers/elanpress-match.c and elanpress-match.h are derived
+from the elanpress driver in filip-rs/libfprint:
+
+  Copyright (C) 2026 Filip Spanne
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+The custom image matcher API in libfprint/fpi-image-device.[ch] and
+libfprint/fpi-print.c is inspired by the libfprint-elan-0c28-patch
+(AUR) experimental package.
+
+Device-specific changes for ELAN 04f3:0c1a (pre-scan polling,
+calibration wait, press capture, threshold 9) were made for this fork.

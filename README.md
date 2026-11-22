@@ -1,90 +1,160 @@
+# libfprint fork for ELAN 04f3:0c1a
 
+Experimental fork of libfprint 1.94.7 adding support for the ELAN
+`04f3:0c1a` fingerprint sensor (Xiaomi Mi Notebook Pro 15.6, TM1703).
 
-<div align="center">
+**This is not upstream libfprint.** It has not been reviewed by the
+libfprint maintainers. Keep a password fallback.
 
-# LibFPrint
+## Status
 
-*LibFPrint is part of the **[FPrint][Website]** project.*
+Working on one 04f3:0c1a unit under Ubuntu 24.04 with fprintd 1.94.x.
+A small sample of 17 genuine presses scored 5..19 consistent SIFT pairs,
+while 40 impostor presses from other fingers reached at most 4. The match
+threshold is set to 9: in that sample 15 of 17 genuine presses passed.
+Expect occasional false rejections.
 
-<br/>
+Tested hardware: Xiaomi Mi Notebook Pro 15.6 (TM1703), sensor `04f3:0c1a`.
+Other ELAN sensors are not supported by this branch.
 
-[![Button Website]][Website]
-[![Button Documentation]][Documentation]
+## What changed
 
-[![Button Supported]][Supported]
-[![Button Unsupported]][Unsupported]
+- Poll the pre-scan command (`0x40 0x3f`). Firmware 0x0142 answers it
+  immediately with `0xaf` instead of blocking until a finger is placed.
+- Wait for the finger to lift before calibrating, so it is not baked into
+  the sensor baseline.
+- Capture in press mode: four frames, one settled frame is matched.
+- Replace NBIS minutiae matching with SIFT keypoints and a rigid-placement
+  matcher derived from the `elanpress` driver (see NOTICE).
+- Store only SIFT keypoints/descriptors in templates, never images.
+- Reject low-contrast captures and ask for another press.
+- Use a threshold of 9 consistent pairs for this sensor.
 
-[![Button Contribute]][Contribute]
-[![Button Contributors]][Contributors]
+## Privacy
 
-</div>
+Templates in `/var/lib/fprint` contain SIFT features only (coordinates,
+angles, scales, 128-byte descriptors). This fork does not store or log
+fingerprint images. Upstream test fixtures under `examples/prints/`,
+`tests/*/capture.png` and Ubuntu's prebuilt fake TOD test drivers under
+`tests/tod-drivers/` are public test data shipped with the source, not
+user data. The patched library itself is always built from source.
 
-## TOD Informations
+## Requirements
 
-See https://gitlab.freedesktop.org/3v1n0/libfprint/-/blob/tod/README.tod.md
+- Linux with systemd for the install script (tested on Ubuntu 24.04).
+- fprintd 1.94.x, ABI-compatible with libfprint 1.94.
+- Build dependencies, per distribution.
 
-## History
+Ubuntu / Debian:
 
-**LibFPrint** was originally developed as part of an
-academic project at the **[University Of Manchester]**.
+```sh
+sudo apt install meson ninja-build pkg-config gcc \
+  libglib2.0-dev libusb-1.0-0-dev libgudev-1.0-dev libgusb-dev \
+  libjson-glib-dev libudev-dev libpixman-1-dev libssl-dev libcairo2-dev
+```
 
-It aimed to hide the differences between consumer
-fingerprint scanners and provide a single uniform
-API to application developers.
+Fedora:
 
-## Goal
+```sh
+sudo dnf install meson ninja-build gcc pkgconf-pkg-config \
+  glib2-devel libusb1-devel libgudev-devel libgusb-devel \
+  json-glib-devel systemd-devel pixman-devel openssl-devel cairo-devel
+```
 
-The ultimate goal of the **FPrint** project is to make
-fingerprint scanners widely and easily usable under
-common Linux environments.
+Arch:
 
-## License
+```sh
+sudo pacman -S meson ninja gcc pkgconf glib2 libusb libgudev libgusb \
+  json-glib systemd pixman openssl cairo
+```
 
-`Section 6` of the license states that for compiled works that use
-this library, such works must include **LibFPrint** copyright notices
-alongside the copyright notices for the other parts of the work.
+## Build
 
-**LibFPrint** includes code from **NIST's** **[NBIS]** software distribution.
+```sh
+meson setup build -Ddrivers=elan -Dintrospection=false -Ddoc=false \
+  -Dinstalled-tests=false -Dtod=true
+meson compile -C build
+```
 
-We include **Bozorth3** from the **[US Export Controlled]**
-distribution, which we have determined to be fine
-being shipped in an open source project.
+Optional tests:
 
-<br/>
+```sh
+meson test -C build --print-errorlogs
+```
 
-<div align="right">
+## Install (systemd)
 
-[![Badge License]][License]
+The install script does not replace distribution packages. It copies the
+built libraries to `/usr/local/lib/libfprint-0c1a` and gives `fprintd` an
+`LD_LIBRARY_PATH` drop-in.
 
-</div>
+```sh
+sudo ./contrib/install-systemd.sh
+```
 
+Then re-enroll, because the templates are matcher-specific:
 
-<!----------------------------------------------------------------------------->
+```sh
+fprintd-delete "$USER"
+fprintd-enroll -f right-index-finger "$USER"
+fprintd-verify "$USER"
+```
 
-[Documentation]: https://fprint.freedesktop.org/libfprint-dev/
-[Contributors]: https://gitlab.freedesktop.org/libfprint/libfprint/-/graphs/master
-[Unsupported]: https://gitlab.freedesktop.org/libfprint/wiki/-/wikis/Unsupported-Devices
-[Supported]: https://fprint.freedesktop.org/supported-devices.html
-[Website]: https://fprint.freedesktop.org/
+Uninstall:
 
-[Contribute]: ./HACKING.md
-[License]: ./COPYING
+```sh
+sudo ./contrib/uninstall-systemd.sh
+```
 
-[University Of Manchester]: https://www.manchester.ac.uk/
-[US Export Controlled]: https://fprint.freedesktop.org/us-export-control.html
-[NBIS]: http://fingerprint.nist.gov/NBIS/index.html
+The script is expected to work on systemd distributions beyond Ubuntu, but
+only Ubuntu 24.04 has been tested. It refuses to run when `fprintd.service`
+is missing. SELinux systems run `restorecon` when available.
 
+### Non-systemd or manual install
 
-<!---------------------------------[ Badges ]---------------------------------->
+On systems without systemd, either run `fprintd` manually with
+`LD_LIBRARY_PATH=/usr/local/lib/libfprint-0c1a`, or install over the
+distribution library:
 
-[Badge License]: https://img.shields.io/badge/License-LGPL2.1-015d93.svg?style=for-the-badge&labelColor=blue
+```sh
+meson setup build --prefix=/usr -Ddrivers=elan -Dintrospection=false \
+  -Ddoc=false -Dinstalled-tests=false -Dtod=true
+meson compile -C build
+sudo meson install -C build
+```
 
+Replacing the distribution library is what the `elanpress` fork documents;
+package updates may overwrite it. The drop-in method above is reversible
+and does not touch packaged files.
 
-<!---------------------------------[ Buttons ]--------------------------------->
+## Debug and threshold tuning
 
-[Button Documentation]: https://img.shields.io/badge/Documentation-04ACE6?style=for-the-badge&logoColor=white&logo=BookStack
-[Button Contributors]: https://img.shields.io/badge/Contributors-FF4F8B?style=for-the-badge&logoColor=white&logo=ActiGraph
-[Button Unsupported]: https://img.shields.io/badge/Unsupported_Devices-EF2D5E?style=for-the-badge&logoColor=white&logo=AdBlock
-[Button Contribute]: https://img.shields.io/badge/Contribute-66459B?style=for-the-badge&logoColor=white&logo=Git
-[Button Supported]: https://img.shields.io/badge/Supported_Devices-428813?style=for-the-badge&logoColor=white&logo=AdGuard
-[Button Website]: https://img.shields.io/badge/Homepage-3B80AE?style=for-the-badge&logoColor=white&logo=freedesktopDotOrg
+To see per-press metadata (no images), add to the fprintd drop-in:
+
+```ini
+[Service]
+Environment=G_MESSAGES_DEBUG=all
+```
+
+Then:
+
+```sh
+journalctl -u fprintd -f
+```
+
+Relevant lines contain `press image`, `sift image quality`, `sift keypoints`
+and `sift best pairs N/9`. The threshold is
+`ELANPRESS_MATCH_MIN_PAIRS` in `libfprint/drivers/elanpress-match.h`.
+Lower it only after collecting impostor scores from other fingers.
+
+## License and attribution
+
+LGPL-2.1-or-later. See `COPYING` and `NOTICE`.
+
+The SIFT implementation and rigid-placement matcher in
+`libfprint/drivers/elanpress-sift.[ch]` and `elanpress-match.[ch]` are
+derived from the `elanpress` driver by Filip Spanne
+(<https://github.com/filip-rs/libfprint>). The custom image matcher API is
+inspired by the `libfprint-elan-0c28-patch` experimental package.
+
+Upstream libfprint: <https://gitlab.freedesktop.org/libfprint/libfprint>
